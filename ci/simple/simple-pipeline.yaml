@@ -1,3 +1,4 @@
+#rvBoZBr8rn13
 apiVersion: tekton.dev/v1alpha1
 kind: PipelineResource
 metadata:
@@ -8,34 +9,133 @@ spec:
     - name: revision
       value: dotnetcore-3.1-openshift-manual-pipeline
     - name: url
-      value: https://github.com/redhat-developer/s2i-dotnetcore-ex
+      value: https://github.com/vccampbell/s2i-dotnetcore-ex
 ---
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
   name: simple-dotnet-pipeline
 spec:
+  workspaces:
+    - name: pipeline-workspace
+  params:
+  - name: deployment-name
+    type: string
+    description: name of the deployment to be patched
+  - name: git-url
+    type: string
+    description: url of the git repo
+  - name: git-branch
+    type: string
+    description: branch to be used fro the git repo for deployment
   resources:
     - name: source-repository
       type: git
   tasks:
-    - name: simple-build-and-test
+    - name: initial-task
+      taskRef:
+        name: initial-task-reference
+      workspaces:
+        - name: task-workspace
+          workspace: pipeline-workspace
+    - name: fetch-repository
+      taskRef:
+        name: git-clone
+        kind: ClusterTask
+      params:
+        - name: url
+          value: $(params.git-url)
+        - name: revision
+          value: $(params.git-branch)
+        - name: subdirectory
+          value: ""
+        - name: deleteExisting
+          value: "true"
+      workspaces:
+        - name: output
+          workspace: pipeline-workspace
+      runAfter:
+        - initial-task
+    - name: test-dotnet
+      taskRef:
+        name: simple-test
+      workspaces:
+        - name: task-workspace
+          workspace: pipeline-workspace
+      #resources:
+      #  inputs:
+      #    - name: source
+      #      resource: source-repository
+      runAfter:
+        - fetch-repository
+    - name: build-dotnet
       taskRef:
         name: simple-publish
-      resources:
-        inputs:
-          - name: source
-            resource: source-repository
+      workspaces:
+        - name: task-workspace
+          workspace: pipeline-workspace
+      runAfter:
+        - test-dotnet
+      #resources:
+      #  inputs:
+      #    - name: source
+      #      resource: source-repository
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: initial-task-reference
+spec:
+  workspaces:
+    - name: task-workspace
+      description: The folder where we write the message
+  steps:
+    - name: start-step
+      image: ubuntu
+      securityContext:
+        runAsUser: 0
+      command: ["/bin/sh"]
+      args:
+        - -c
+        - |
+            echo "Starting initial task..."
+            echo "This is the message." > $(workspaces.task-workspace.path)/message.txt
+            ls -la $(workspaces.task-workspace.path)
+            echo "Ending initial task..."
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: simple-test
+spec:
+  workspaces:
+    - name: task-workspace
+      description: dotnet test
+  steps:
+    - name: simple-dotnet-test
+      image: registry.access.redhat.com/ubi8/dotnet-31 # .NET Core SDK
+      securityContext:
+        runAsUser: 0  # UBI 8 images generally run as non-root
+      script: |
+          #!/usr/bin/bash
+          echo $(workspaces.task-workspace.path)
+          ls -la $(workspaces.task-workspace.path)
+          cd $(workspaces.task-workspace.path)
+          dotnet --info
+          dotnet test "app.tests/app.tests.csproj"
 ---
 apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
   name: simple-publish
 spec:
-  resources:
-    inputs:
-      - name: source
-        type: git
+  workspaces:
+    - name: task-workspace
+      description: dotnet publish
+  #resources:
+  #  inputs:
+  #    - name: source
+  #      type: git
   steps:
     - name: simple-dotnet-publish
       image: registry.access.redhat.com/ubi8/dotnet-31 # .NET Core SDK
@@ -44,5 +144,5 @@ spec:
       script: |
           #!/usr/bin/bash
           dotnet --info
-          cd source
+          cd $(workspaces.task-workspace.path)
           dotnet publish -c Release -r linux-x64 --self-contained false "app/app.csproj"

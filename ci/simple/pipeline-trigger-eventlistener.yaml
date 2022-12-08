@@ -1,0 +1,11 @@
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: EventListener
+metadata:
+  name: s2i-dotnetcore-ex
+spec:
+  serviceAccountName: pipeline
+  triggers:
+  - bindings:
+    - name: s2i-dotnetcore-ex
+    template:
+      name: s2i-dotnetcore-ex
