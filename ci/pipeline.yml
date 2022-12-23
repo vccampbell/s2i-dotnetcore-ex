@@ -1,0 +1,182 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: dotnetapp-develop
+  namespace: cicd
+spec:
+  workspaces:
+    - name: shared-workspace
+    - name: images-url
+    - name: ssh-creds
+  params:
+    - name: BUILD_TAG
+      description: Build image tag
+      type: string
+    - name: EXT_REGISTRY
+      default: ""
+      type: string
+    - name: EXT_REGISTRY_NAMESPACE
+      default: ""
+    - name: GIT_REVISION
+      description: Revision to checkout (branch, tag, commit, etc.)
+      type: string
+    - name: GIT_REPO_URL
+      description: Repo URL to clone
+      type: string
+    - name: IMAGE_NAME
+      default: $(context.pipeline.name)
+      type: string
+    - name: IMAGE_REGISTRY
+      default: image-registry.openshift-image-registry.svc:5000
+      type: string
+    - name: IMAGE_REPOSITORY
+      default: $(context.pipelineRun.namespace)
+      type: string
+    - name: IMAGE_TAG
+      default: $(context.pipelineRun.uid)
+      type: string
+    - name: OC_CLI_VERSION
+      default: ""
+      type: string
+    - name: SKIP_PUSH
+      description: Skip pushing the built image
+      type: string
+    - name: TLSVERIFY
+      description: Verify the TLS on the registry endpoint
+      type: string
+    # vars for Office365 notifications
+    - name: APPLICATION_NAME
+      default: $(context.pipeline.name)
+      type: string
+    - name: PIPELINE_RUN_URL
+      default: ""
+      type: string
+    - name: PIPELINE_NAME
+      default: $(context.pipeline.name)
+      type: string
+    - name: PULL_REQUEST_MERGE_COMMIT_URL
+      description: Pull request merge commit URL
+      default: ""
+      type: string
+    - name: PULL_REQUEST_TITLE
+      description: The pull request title
+      default: "Not available"
+      type: string
+    - name: TARGET_NAMESPACE
+      default: ""
+      type: string
+    - name: WEBHOOK_URL_SECRET
+      default: ""
+      type: string
+    - name: WEBHOOK_URL_SECRET_KEY
+      default: ""
+      type: string
+    # deployment verification commands
+    - name: VERIFY_DELTA_CMD
+      default: |
+        oc rollout status 'dc/outagealerts' --watch -n delta || true
+      type: string
+
+  tasks:
+    - name: fetch-repository
+      taskRef:
+        kind: ClusterTask
+        name: git-clone
+      workspaces:
+        - name: output
+          workspace: shared-workspace
+        - name: ssh-directory
+          workspace: ssh-creds
+      params:
+        - name: url
+          value: $(params.GIT_REPO_URL)
+        - name: revision
+          value: $(params.GIT_REVISION)
+        - name: subdirectory
+          value: ""
+        - name: deleteExisting
+          value: "true"
+
+    - name: build-image
+      taskRef:
+        kind: ClusterTask
+        name: buildah
+      runAfter:
+        - fetch-repository
+      params:
+        - name: DOCKERFILE
+          value: ./app/Dockerfile
+        - name: IMAGE
+          value: $(params.IMAGE_REGISTRY)/$(params.IMAGE_REPOSITORY)/$(params.IMAGE_NAME):$(params.IMAGE_TAG)
+        - name: SKIP_PUSH
+          value: $(params.SKIP_PUSH)
+        - name: TLSVERIFY
+          value: $(params.TLSVERIFY)
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+
+    - name: tag-image
+      taskRef:
+        kind: ClusterTask
+        name: openshift-client
+      runAfter:
+        - build-image
+      params:
+        - name: SCRIPT
+          value: |
+            oc tag $(params.IMAGE_REPOSITORY)/$(params.IMAGE_NAME):$(params.IMAGE_TAG) $(params.IMAGE_REPOSITORY)/$(params.IMAGE_NAME):$(params.BUILD_TAG)
+        - name: VERSION
+          value: $(params.OC_CLI_VERSION)
+
+    - name: verify-delta
+      taskRef:
+        kind: ClusterTask
+        name: openshift-client
+      runAfter:
+        - tag-image
+      params:
+        - name: SCRIPT
+          value: $(params.VERIFY_DELTA_CMD)
+        - name: VERSION
+          value: $(params.OC_CLI_VERSION)
+
+    #- name: notify-delta
+    #  taskRef:
+    #    kind: Task
+    #    name: notify-deployment-success
+    #  runAfter:
+    #    - verify-delta
+    #  params:
+    #    - name: APPLICATION_NAME
+    #      value: $(params.APPLICATION_NAME)
+    #    - name: TARGET_NAMESPACE
+    #      value: delta
+    #    - name: PIPELINE_NAME
+    #      value: $(params.PIPELINE_NAME)
+    #    - name: PIPELINE_RUN_URL
+    #      value: $(params.PIPELINE_RUN_URL)
+    #    - name: PULL_REQUEST_MERGE_COMMIT_URL
+    #      value: $(params.PULL_REQUEST_MERGE_COMMIT_URL)
+    #    - name: PULL_REQUEST_TITLE
+    #      value: $(params.PULL_REQUEST_TITLE)
+    #    - name: WEBHOOK_URL_SECRET
+    #      value: $(params.WEBHOOK_URL_SECRET)
+    #    - name: WEBHOOK_URL_SECRET_KEY
+    #      value: $(params.WEBHOOK_URL_SECRET_KEY)
+
+    - name: mirror-image-ext
+      taskRef:
+        kind: ClusterTask
+        name: skopeo-copy
+      runAfter:
+        - verify-delta
+      params:
+        - name: srcImageURL
+          value: docker://$(params.IMAGE_REGISTRY)/$(params.IMAGE_REPOSITORY)/$(params.IMAGE_NAME):$(params.BUILD_TAG)
+        - name: destImageURL
+          value: docker://$(params.EXT_REGISTRY)/$(params.EXT_REGISTRY_NAMESPACE)/$(params.IMAGE_NAME):$(params.BUILD_TAG)
+      workspaces:
+        - name: images-url
+          workspace: images-url

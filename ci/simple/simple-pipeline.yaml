@@ -62,10 +62,6 @@ spec:
       workspaces:
         - name: task-workspace
           workspace: pipeline-workspace
-      #resources:
-      #  inputs:
-      #    - name: source
-      #      resource: source-repository
       runAfter:
         - fetch-repository
     - name: build-dotnet
@@ -76,10 +72,14 @@ spec:
           workspace: pipeline-workspace
       runAfter:
         - test-dotnet
-      #resources:
-      #  inputs:
-      #    - name: source
-      #      resource: source-repository
+    - name: build-docker
+      taskRef:
+        name: docker-build
+      workspaces:
+        - name: task-workspace
+          workspace: pipeline-workspace
+      runAfter:
+        - test-dotnet
 ---
 apiVersion: tekton.dev/v1beta1
 kind: Task
@@ -91,7 +91,7 @@ spec:
       description: The folder where we write the message
   steps:
     - name: start-step
-      image: ubuntu
+      image: alpine
       securityContext:
         runAsUser: 0
       command: ["/bin/sh"]
@@ -132,10 +132,6 @@ spec:
   workspaces:
     - name: task-workspace
       description: dotnet publish
-  #resources:
-  #  inputs:
-  #    - name: source
-  #      type: git
   steps:
     - name: simple-dotnet-publish
       image: registry.access.redhat.com/ubi8/dotnet-31 # .NET Core SDK
@@ -146,3 +142,46 @@ spec:
           dotnet --info
           cd $(workspaces.task-workspace.path)
           dotnet publish -c Release -r linux-x64 --self-contained false "app/app.csproj"
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: docker-build
+spec:
+  workspaces:
+    - name: task-workspace
+      description: docker build
+  steps:
+    - name: docker-build
+      image: registry.access.redhat.com/ubi8/ubi-minimal
+      securityContext:
+        runAsUser: 0
+      command: ["/bin/sh"]
+      args:
+        - -c
+        - |
+            echo "Starting docker build task..."
+            cd $(workspaces.task-workspace.path)/app
+            docker build -t s2i-dotnetcore-ex .
+            echo "Ending initial task..."
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: final-task
+spec:
+  workspaces:
+    - name: task-workspace
+      description: Final task
+  steps:
+    - name: final-step
+      image: alpine
+      securityContext:
+        runAsUser: 0
+      command: ["/bin/sh"]
+      args:
+        - -c
+        - |
+            echo "Starting final task..."
+            ls -la $(workspaces.task-workspace.path)
+            echo "Ending final task..."

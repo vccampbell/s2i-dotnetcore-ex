@@ -1,0 +1,43 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: dotnetapp-develop-run-
+  namespace: cicd
+spec:
+  params:
+    - name: BUILD_TAG
+      value: latest
+    - name: EXT_REGISTRY
+      value: docker.io
+    - name: EXT_REGISTRY_NAMESPACE
+      value: vccampbell
+    - name: GIT_REPO_URL
+      value: https://github.com/vccampbell/s2i-dotnetcore-ex
+    - name: GIT_REVISION
+      value: dotnetcore-3.1-openshift-manual-pipeline
+    - name: OC_CLI_VERSION
+      value: "latest"
+    - name: PIPELINE_RUN_URL
+      value: https://console-openshift-console.apps-crc.testing/k8s/ns/cicd/tekton.dev~v1beta1~Pipeline/dotnetapp-develop
+    - name: SKIP_PUSH
+      value: "false"
+    - name: TLSVERIFY
+      value: "false"
+    - name: WEBHOOK_URL_SECRET
+      value: o365-webhook-url
+    - name: WEBHOOK_URL_SECRET_KEY
+      value: webhook-url
+  pipelineRef:
+    name: dotnetapp-develop
+  serviceAccountName: pipeline
+  workspaces:
+    - name: shared-workspace
+      subPath: source
+      persistentvolumeclaim:
+        claimName: dotnetapp-source-pvc
+    - name: ssh-creds
+      secret:
+        secretName: github-ssh-private-key
+    - name: images-url
+      emptyDir: {}
