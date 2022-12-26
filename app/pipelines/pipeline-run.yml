@@ -32,7 +32,7 @@ spec:
       value: webhook-url
   pipelineRef:
     name: dotnetapp-develop
-  serviceAccountName: build-bot
+  serviceAccountName: pipeline
   workspaces:
     - name: shared-workspace
       subPath: source
