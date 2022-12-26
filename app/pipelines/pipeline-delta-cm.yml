@@ -1,0 +1,9 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dotnetapp-config
+  namespace: delta
+data:
+  # TODO: Define
+  application.properties: "spring.application.name=dotnetapp\r\nenvironment=delta\r\nlogging.config=/logback/logback-spring.xml\r\n\r\nengineering.connector.base.url=https://engineeringconnector-alpha.dqapps.comporium.com/\r\n\r\nitsupport.email.address.to=craig.campbell@orangebees.com\r\nemail.address.from=craig.campbell@orangebees.com"

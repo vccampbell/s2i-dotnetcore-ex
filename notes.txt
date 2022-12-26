@@ -1,0 +1,25 @@
+T8DHU-MI6td-QDatj-79pde
+
+When logging in from your Docker CLI client, use this token as a password. Learn more
+
+ACCESS TOKEN DESCRIPTION
+openshift-dotnetapp
+ACCESS PERMISSIONS
+Read, Write, Delete
+To use the access token from your Docker CLI client:
+
+1. Run docker login -u vccampbell
+
+2. At the password prompt, enter the personal access token.
+
+dckr_pat_QP1FRhb9B8SLmPPF_ZVVLhgkTNw
+
+
+
+
+kubectl create secret docker-registry docker-io --docker-server=https://index.docker.io/v1/ --docker-username=vccampbell --docker-password=dckr_pat_QP1FRhb9B8SLmPPF_ZVVLhgkTNw --docker-email=craig@vcampbell.com
+
+
+
+image-registry.openshift-image-registry.svc:5000/cicd/dotnetapp-develop@sha256:4ab5c38e9d95179b8b7cb273c564487b60e7895eade27364d3600c8a7e827807
+                                                                        sha256:4ab5c38e9d95179b8b7cb273c564487b60e7895eade27364d3600c8a7e827807

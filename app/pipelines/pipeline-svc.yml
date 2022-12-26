@@ -5,6 +5,7 @@ metadata:
   labels:
     app: dotnetapp
   name: dotnetapp
+  namespace: delta
 spec:
   ports:
     - name: 8080-tcp

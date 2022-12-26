@@ -5,10 +5,10 @@ metadata:
   labels:
     app: dotnetapp
   name: dotnetapp
-  namespace: alpha
+  namespace: delta
 spec:
   port:
-    targetPort: 8080-tcp
+    targetPort: 8080-tcp // must match Service name
   tls:
     termination: edge
   to:
