@@ -75,7 +75,7 @@ spec:
     # deployment verification commands
     - name: VERIFY_DELTA_CMD
       default: |
-        oc rollout status 'dc/outagealerts' --watch -n delta || true
+        oc rollout status dc/dotnetapp --watch -n delta || true
       type: string
 
   tasks:

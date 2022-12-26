@@ -1,0 +1,75 @@
+---
+apiVersion: apps.openshift.io/v1
+kind: DeploymentConfig
+metadata:
+  labels:
+    app: dotnetapp
+  name: dotnetapp
+  namespace: delta
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    app: dotnetapp
+    deploymentconfig: dotnetapp
+  strategy:
+    activeDeadlineSeconds: 21600
+    resources: {}
+    rollingParams:
+      intervalSeconds: 1
+      maxSurge: 25%
+      maxUnavailable: 25%
+      timeoutSeconds: 600
+      updatePeriodSeconds: 1
+    type: Rolling
+  template:
+    metadata:
+      labels:
+        app: dotnetapp
+        deploymentconfig: dotnetapp
+    spec:
+      containers:
+      - image: image-registry.openshift-image-registry.svc:5000/cicd/dotnetapp-develop:latest
+        imagePullPolicy: Always
+        name: dotnetapp
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        #volumeMounts:
+        #- mountPath: /app/log
+        #  name: dotnetapp-volume-1
+        #- mountPath: /config
+        #  name: volume-6sqpb
+        #- mountPath: /logback
+        #  name: volume-dyfjo
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      #volumes:
+      #- emptyDir: {}
+      #  name: dotnetapp-volume-1
+      #- configMap:
+      #    defaultMode: 420
+      #    name: dotnetapp-config
+      #  name: volume-6sqpb
+      #- configMap:
+      #    defaultMode: 420
+      #    name: circuitbusiness-logback-spring-xml
+      #  name: volume-dyfjo
+  test: false
+  triggers:
+  - type: ConfigChange
+  - imageChangeParams:
+      automatic: true
+      containerNames:
+      - dotnetapp
+      from:
+        kind: ImageStreamTag
+        name: dotnetapp-develop:latest
+        namespace: cicd
+    type: ImageChange

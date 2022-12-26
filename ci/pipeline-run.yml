@@ -12,6 +12,8 @@ spec:
       value: docker.io
     - name: EXT_REGISTRY_NAMESPACE
       value: vccampbell
+    - name: DOCKER_SECRET
+      value: docker-io
     - name: GIT_REPO_URL
       value: https://github.com/vccampbell/s2i-dotnetcore-ex
     - name: GIT_REVISION
